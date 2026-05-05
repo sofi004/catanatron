@@ -48,6 +48,38 @@ def is_valid_action(playable_actions, state: State, action: Action) -> bool:
             and is_valid_trade(action.value)
         )
 
+    # Some actions like CONFIRM_TRADE may carry a target color
+    # expressed as a string from the frontend. Normalize that case so
+    # we compare semantically-equivalent actions rather than fail
+    # due to mismatched types (str vs Color enum).
+    if action.action_type.name == "CONFIRM_TRADE":
+        val = action.value
+        if isinstance(val, (list, tuple)) and len(val) >= 11:
+            target = val[10]
+            if isinstance(target, str):
+                resolved = None
+                for c in state.colors:
+                    if c.name == target or c.name == target.upper():
+                        resolved = c
+                        break
+                # build a comparable value using the resolved Color
+                try:
+                    comparable_val = tuple(val[:10]) + (resolved,)
+                except Exception:
+                    comparable_val = val
+            else:
+                comparable_val = tuple(val)
+
+        else:
+            comparable_val = val
+
+        for pa in playable_actions:
+            if pa.action_type == action.action_type:
+                # compare values directly when possible
+                if pa.value == comparable_val:
+                    return True
+        return False
+
     return action in playable_actions
 
 
