@@ -86,6 +86,8 @@ def generate_playable_actions(state: State) -> List[Action]:
 
             # Trade
             actions.extend(maritime_trade_possibilities(state, color))
+            # Player to Player Trade
+            actions.extend(P_to_P_trade_possibilities(state, color))
         return actions
     elif action_prompt == ActionPrompt.DISCARD:
         return discard_possibilities(state, color)
@@ -336,5 +338,43 @@ def inner_maritime_trade_possibilities(hand_freqdeck, bank_freqdeck, port_resour
                 ):
                     trade_offer = tuple(resource_out + [j_resource])
                     trade_offers.add(trade_offer)
+
+    return trade_offers
+
+def P_to_P_trade_possibilities(state, color) -> List[Action]:
+    hand_freqdeck = [
+        player_num_resource_cards(state, color, resource) for resource in RESOURCES
+    ]
+    trade_offers = inner_P_to_P_trade_possibilities(hand_freqdeck)
+
+    return list(
+        map(lambda t: Action(color, ActionType.OFFER_TRADE, t), trade_offers)
+    )
+
+def inner_P_to_P_trade_possibilities(hand_freqdeck):
+    """This inner function is to make this logic more shareable"""
+    trade_offers = set()
+
+    # Complex trades: offer 1 and ask 1 or 2, the ai can ask multiple trades in a single turn
+    
+    for index, resource in enumerate(RESOURCES):
+        amount = hand_freqdeck[index]
+        if amount >= 1:
+            for j_index, j_resource in enumerate(RESOURCES):
+                if resource != j_resource:
+                    # offer 1, ask 1
+                    trade_offer_1 = tuple(
+                        [1 if i == index else 0 for i in range(len(RESOURCES))]
+                        + [1 if i == j_index else 0 for i in range(len(RESOURCES))]
+                    )
+                    trade_offers.add(trade_offer_1)
+
+                    # offer 1, ask 2
+                    trade_offer_2 = tuple(
+                        [1 if i == index else 0 for i in range(len(RESOURCES))]
+                        + [2 if i == j_index else 0 for i in range(len(RESOURCES))]
+                    )
+                    trade_offers.add(trade_offer_2)
+    
 
     return trade_offers

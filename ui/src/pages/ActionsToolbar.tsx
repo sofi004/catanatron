@@ -266,7 +266,7 @@ function PlayButtons() {
   ];
 
   const tradeActions = gameState.current_playable_actions.filter(
-    (action) => action[1] === "MARITIME_TRADE",
+    (action) => action[1] === "MARITIME_TRADE" || action[1] === "OFFER_TRADE",
   );
   const tradeItems = React.useMemo(() => {
     const items = tradeActions.map((action) => {
@@ -281,11 +281,116 @@ function PlayButtons() {
     return items.sort((a, b) => a.label.localeCompare(b.label));
   }, [tradeActions, carryOutAction]);
 
+  const isTradeDecision =
+    gameState.current_prompt === "DECIDE_TRADE" ||
+    gameState.current_prompt === "DECIDE_ACCEPTEES";
+  const tradeDecisionItems = React.useMemo(() => {
+    if (!isTradeDecision) {
+      return [];
+    }
+
+    return gameState.current_playable_actions
+      .map((action) => {
+        if (action[1] === "ACCEPT_TRADE") {
+          return {
+            label: "Accept Trade",
+            disabled: false,
+            onClick: carryOutAction(action),
+          };
+        }
+        if (action[1] === "REJECT_TRADE") {
+          return {
+            label: "Reject Trade",
+            disabled: false,
+            onClick: carryOutAction(action),
+          };
+        }
+        if (action[1] === "CANCEL_TRADE") {
+          return {
+            label: "Cancel Trade",
+            disabled: false,
+            onClick: carryOutAction(action),
+          };
+        }
+        if (action[1] === "CONFIRM_TRADE") {
+          return {
+            label: `Confirm Trade With ${action[2][10]}`,
+            disabled: false,
+            onClick: carryOutAction(action),
+          };
+        }
+        return null;
+      })
+      .filter(
+        (item): item is {
+          label: string;
+          disabled: boolean;
+          onClick: () => Promise<void>;
+        } => item !== null,
+      );
+  }, [gameState.current_playable_actions, carryOutAction, isTradeDecision]);
+
   const setIsMovingRobber = useCallback(() => {
     dispatch({ type: ACTIONS.SET_IS_MOVING_ROBBER });
   }, [dispatch]);
   const rollAction = carryOutAction([humanColor, "ROLL", null]);
   const endTurnAction = carryOutAction([humanColor, "END_TURN", null]);
+  if (isTradeDecision) {
+    const acceptAction = gameState.current_playable_actions.find(
+      (action) => action[1] === "ACCEPT_TRADE",
+    );
+    const rejectAction = gameState.current_playable_actions.find(
+      (action) => action[1] === "REJECT_TRADE",
+    );
+
+    return (
+      <>
+        <Prompt gameState={gameState} isBotThinking={false} />
+        <div className="trade-decision-actions">
+          {acceptAction && (
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => {
+                void carryOutAction(acceptAction)();
+              }}
+            >
+              Accept Trade
+            </Button>
+          )}
+          {rejectAction && (
+            <Button
+              variant="contained"
+              color="secondary"
+              onClick={() => {
+                void carryOutAction(rejectAction)();
+              }}
+            >
+              Reject Trade
+            </Button>
+          )}
+          {tradeDecisionItems
+            .filter(
+              (item) =>
+                item.label !== "Accept Trade" && item.label !== "Reject Trade",
+            )
+            .map((item) => (
+              <Button
+                key={item.label}
+                variant="contained"
+                color="secondary"
+                onClick={() => {
+                  void item.onClick();
+                }}
+              >
+                {item.label}
+              </Button>
+            ))}
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <OptionsButton
@@ -519,6 +624,7 @@ function OptionsButton({
         open={open}
         anchorEl={anchorRef.current}
         role={undefined}
+        placement="top-start"
         transition
         disablePortal
       >
@@ -526,11 +632,12 @@ function OptionsButton({
           <Grow
             {...TransitionProps}
             style={{
-              transformOrigin:
-                placement === "bottom" ? "center top" : "center bottom",
+              transformOrigin: placement.startsWith("top")
+                ? "center bottom"
+                : "center top",
             }}
           >
-            <Paper>
+            <Paper className="action-popover-paper">
               <ClickAwayListener onClickAway={handleClose()}>
                 <MenuList
                   autoFocusItem={open}

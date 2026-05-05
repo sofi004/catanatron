@@ -38,6 +38,18 @@ def action_from_json(data) -> Action:
     elif action_type == ActionType.MARITIME_TRADE:
         value = tuple(data[2])
         action = Action(color, action_type, value)
+    elif action_type == ActionType.ACCEPT_TRADE:
+        value = tuple(data[2])
+        action = Action(color, action_type, value)
+    elif action_type == ActionType.REJECT_TRADE:
+        value = tuple(data[2])
+        action = Action(color, action_type, value)
+    elif action_type == ActionType.CONFIRM_TRADE:
+        value = data[2]
+        action = Action(color, action_type, value)
+    elif action_type == ActionType.CANCEL_TRADE:
+        value = data[2]
+        action = Action(color, action_type, value)
     else:
         action = Action(color, action_type, data[2])
     return action

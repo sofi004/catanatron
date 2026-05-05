@@ -11,6 +11,14 @@ import type {
 } from "./api.types";
 import type { GameState } from "./api.types";
 
+const RESOURCE_ORDER: ResourceCard[] = [
+  "WOOD",
+  "BRICK",
+  "SHEEP",
+  "WHEAT",
+  "ORE",
+];
+
 export function humanizeActionRecord(
   gameState: GameState,
   actionRecord: GameActionRecord,
@@ -76,9 +84,23 @@ export function humanizeActionRecord(
       const stolenResource = robbedResource ? ` (STOLE ${robbedResource})` : "";
       return `${player} ROBBED ${tileString}${stolenResource}`;
     }
-    case "MARITIME_TRADE": {
-      const label = humanizeTradeAction(action as MaritimeTradeAction);
-      return `${player} TRADED ${label}`;
+    case "MARITIME_TRADE":
+    case "OFFER_TRADE": {
+      const label = humanizeTradeAction(action);
+      const verb = action[1] === "MARITIME_TRADE" ? "TRADED" : "OFFERED";
+      return `${player} ${verb} ${label}`;
+    }
+    case "ACCEPT_TRADE": {
+      return `${player} ACCEPTED TRADE`;
+    }
+    case "REJECT_TRADE": {
+      return `${player} REJECTED TRADE`;
+    }
+    case "CONFIRM_TRADE": {
+      return `${player} CONFIRMED TRADE`;
+    }
+    case "CANCEL_TRADE": {
+      return `${player} CANCELED TRADE`;
     }
     case "END_TURN":
       return `${player} ENDED TURN`;
@@ -86,11 +108,40 @@ export function humanizeActionRecord(
       throw new Error(`Unknown action type: ${action[1]}`);
   }
 }
-export function humanizeTradeAction(action: MaritimeTradeAction): string {
-  const out = action[2]
-    .slice(0, 4)
-    .filter((resource: unknown) => resource !== null);
-  return `${out.length} ${out[0]} => ${action[2][4]}`;
+export function humanizeTradeAction(action: any): string {
+  const value = action[2];
+  // Maritime trade shape: 5-length array of resource cards / nulls.
+  if (Array.isArray(value) && value.length === 5) {
+    const offered = describeResourceBundle(value.slice(0, 4));
+    const requested = value[4];
+    return `${offered} -> ${requested}`;
+  }
+
+  // Offer trade shape: 10-length count vector [offered(5), asked(5)]
+  if (Array.isArray(value) && value.length === 10) {
+    const offered = value.slice(0, 5);
+    const asked = value.slice(5, 10);
+    return `${describeCountVector(offered)} -> ${describeCountVector(asked)}`;
+  }
+
+  return "TRADE";
+}
+
+function describeResourceBundle(freqdeck: Array<ResourceCard | null>): string {
+  const counts = RESOURCE_ORDER.map(
+    (resource) => freqdeck.filter((card) => card === resource).length,
+  );
+  return describeCountVector(counts);
+}
+
+function describeCountVector(counts: Array<number | null>): string {
+  const parts = counts
+    .map((count, index) =>
+      count && count > 0 ? `${count} ${RESOURCE_ORDER[index]}` : null,
+    )
+    .filter((part): part is string => part !== null);
+
+  return parts.length > 0 ? parts.join(" + ") : "0 RESOURCE";
 }
 
 export function findTileByCoordinate(gameState: GameState, coordinate: any) {

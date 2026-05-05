@@ -50,10 +50,23 @@ $btn-height: 60px;
 
   .action-popover {
     z-index: 1;
+  }
 
-    overflow: auto;
-    max-height: calc(100% - #{$btn-height});
-    margin-bottom: 10px;
+  .action-popover-paper {
+    max-height: calc(100vh - 140px);
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .trade-decision-actions {
+    display: flex;
+    gap: variables.$sm-gutter;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    padding: variables.$sm-gutter;
+    width: 100%;
+    max-width: 100%;
   }
 
   .MuiButton-label {

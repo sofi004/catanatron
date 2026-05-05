@@ -23,6 +23,11 @@ export type GameActionRecord =
   | [PlayMonopolyAction, null]
   | [PlayYearOfPlentyAction, null]
   | [MaritimeTradeAction, null]
+  | [OfferTradeAction, null]
+  | [AcceptTradeAction, null]
+  | [RejectTradeAction, null]
+  | [ConfirmTradeAction, null]
+  | [CancelTradeAction, null]
   | [EndTurnAction, null];
 
 export type RollGameAction = [Color, "ROLL", null];
@@ -49,6 +54,15 @@ export type MaritimeTradeAction = [
   "MARITIME_TRADE",
   (ResourceCard | null)[],
 ];
+export type OfferTradeAction = [
+  Color,
+  "OFFER_TRADE",
+  (ResourceCard | null)[],
+];
+export type AcceptTradeAction = [Color, "ACCEPT_TRADE", null];
+export type RejectTradeAction = [Color, "REJECT_TRADE", null];
+export type ConfirmTradeAction = [Color, "CONFIRM_TRADE", null];
+export type CancelTradeAction = [Color, "CANCEL_TRADE", null];
 export type EndTurnAction = [Color, "END_TURN", null];
 
 export type GameAction =
@@ -64,6 +78,11 @@ export type GameAction =
   | PlayYearOfPlentyAction
   | MoveRobberAction
   | MaritimeTradeAction
+  | OfferTradeAction
+  | AcceptTradeAction
+  | RejectTradeAction
+  | ConfirmTradeAction
+  | CancelTradeAction
   | EndTurnAction;
 
 export type PlayerState = any;

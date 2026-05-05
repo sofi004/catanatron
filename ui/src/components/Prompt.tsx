@@ -9,6 +9,10 @@ function humanizePrompt(currentPrompt: string): string {
       return `YOUR TURN`;
     case "PLAY_TURN":
       return `YOUR TURN`;
+    case "DECIDE_TRADE":
+      return `ACCEPT OR REJECT THIS TRADE?`;
+    case "DECIDE_ACCEPTEES":
+      return `CHOOSE WHO TO TRADE WITH`;
     case "BUILD_INITIAL_SETTLEMENT":
     case "BUILD_INITIAL_ROAD":
     default: {
