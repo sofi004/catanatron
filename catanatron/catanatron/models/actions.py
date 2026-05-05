@@ -394,10 +394,12 @@ def inner_P_to_P_trade_possibilities(hand_freqdeck):
                     trade_offers.add(trade_offer_12)
 
                     # offer 2, ask 1
-                    trade_offer_21 = tuple(
-                        [2 if i == index else 0 for i in range(len(RESOURCES))]
-                        + [1 if i == j_index else 0 for i in range(len(RESOURCES))]
-                    )
-                    trade_offers.add(trade_offer_21)
+                    # only offer 2 if player actually has at least 2 of that resource
+                    if amount >= 2:
+                        trade_offer_21 = tuple(
+                            [2 if i == index else 0 for i in range(len(RESOURCES))]
+                            + [1 if i == j_index else 0 for i in range(len(RESOURCES))]
+                        )
+                        trade_offers.add(trade_offer_21)
 
     return trade_offers
