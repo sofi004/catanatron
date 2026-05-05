@@ -449,6 +449,14 @@ def apply_offer_trade(state: State, action: Action):
     elif isinstance(value, (list, tuple)) and len(value) == 11:
         trade_vec = tuple(value[:10])
         target_color = value[10]
+        # Resolve string target to Color enum if necessary
+        if isinstance(target_color, str):
+            resolved = None
+            for c in state.colors:
+                if c.name == target_color or c.name == target_color.upper():
+                    resolved = c
+                    break
+            target_color = resolved
         targets = [c == target_color for c in state.colors]
     else:
         # Fallback to legacy behavior
@@ -457,6 +465,8 @@ def apply_offer_trade(state: State, action: Action):
 
     state.current_trade = (*trade_vec, state.current_turn_index)
     state.current_trade_targets = tuple(targets)
+    # reset acceptees for the new trade
+    state.acceptees = tuple(False for _ in state.colors)
 
     # find next targeted player in seating order after the offering player's turn
     num = len(state.colors)
@@ -487,28 +497,40 @@ def apply_accept_trade(state: State, action: Action):
     new_acceptess[index] = True  # type: ignore
     state.acceptees = tuple(new_acceptess)
 
-    try:
-        state.current_player_index = next(
-            i
-            for i, _ in enumerate(state.colors)
-            if i > state.current_player_index and state.current_trade_targets[i]
-        )
-    except StopIteration:
+    # find next targeted player after the current one, wrapping around
+    num = len(state.colors)
+    offering_index = state.current_turn_index
+    next_player = None
+    for offset in range(1, num):
+        i = (state.current_player_index + offset) % num
+        if state.current_trade_targets[i] and i != offering_index:
+            next_player = i
+            break
+
+    if next_player is None:
         # by this action, there is at least 1 acceptee, so go to DECIDE_ACCEPTEES
         state.current_player_index = state.current_turn_index
         state.current_prompt = ActionPrompt.DECIDE_ACCEPTEES
+    else:
+        state.current_player_index = next_player
 
     return ActionRecord(action=action, result=None)
 
 
 def apply_reject_trade(state: State, action: Action):
-    try:
-        state.current_player_index = next(
-            i
-            for i, _ in enumerate(state.colors)
-            if i > state.current_player_index and state.current_trade_targets[i]
-        )
-    except StopIteration:
+    # find next targeted player after the current one, wrapping around
+    num = len(state.colors)
+    offering_index = state.current_turn_index
+    next_player = None
+    for offset in range(1, num):
+        i = (state.current_player_index + offset) % num
+        if state.current_trade_targets[i] and i != offering_index:
+            next_player = i
+            break
+
+    if next_player is not None:
+        state.current_player_index = next_player
+    else:
         # if no acceptees at this point, go back to PLAY_TURN
         if sum(state.acceptees) == 0:
             reset_trading_state(state)
@@ -527,6 +549,20 @@ def apply_confirm_trade(state: State, action: Action):
     offering = action.value[:5]
     asking = action.value[5:10]
     enemy_color = action.value[10]
+    if isinstance(enemy_color, str):
+        resolved = None
+        for c in state.colors:
+            if c.name == enemy_color or c.name == enemy_color.upper():
+                resolved = c
+                break
+        enemy_color = resolved
+
+    # Validate both parties have required resources before mutating state
+    if not player_resource_freqdeck_contains(state, action.color, offering):
+        raise ValueError("Offering player does not have resources to complete trade")
+    if not player_resource_freqdeck_contains(state, enemy_color, asking):
+        raise ValueError("Counterparty does not have resources to complete trade")
+
     player_freqdeck_subtract(state, action.color, offering)
     player_freqdeck_add(state, action.color, asking)
     player_freqdeck_subtract(state, enemy_color, asking)
