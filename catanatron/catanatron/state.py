@@ -141,6 +141,11 @@ class State:
             self.is_resolving_trade = False
             self.current_trade: Tuple = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
             self.acceptees = tuple(False for _ in self.colors)
+            # Per-player targets for the currently offered trade. Boolean vector
+            # aligned with `self.colors` indicating which players were targeted
+            # by the offer (True == targeted). Used to skip non-targeted players
+            # during the accept/reject sequence.
+            self.current_trade_targets = tuple(False for _ in self.colors)
 
     def current_player(self):
         """Helper for accessing Player instance who should decide next"""
@@ -193,5 +198,6 @@ class State:
         state_copy.is_resolving_trade = self.is_resolving_trade
         state_copy.current_trade = self.current_trade
         state_copy.acceptees = self.acceptees
+        state_copy.current_trade_targets = self.current_trade_targets
 
         return state_copy

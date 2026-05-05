@@ -117,11 +117,14 @@ export function humanizeTradeAction(action: any): string {
     return `${offered} -> ${requested}`;
   }
 
-  // Offer trade shape: 10-length count vector [offered(5), asked(5)]
-  if (Array.isArray(value) && value.length === 10) {
+
+  // Targeted offer shape: 11-length vector where the last element is the
+  // target player's color (string). Render with target info.
+  if (Array.isArray(value) && value.length === 11 && typeof value[10] === "string") {
     const offered = value.slice(0, 5);
     const asked = value.slice(5, 10);
-    return `${describeCountVector(offered)} -> ${describeCountVector(asked)}`;
+    const target = value[10];
+    return `${describeCountVector(offered)} -> ${describeCountVector(asked)} TO ${target}`;
   }
 
   return "TRADE";

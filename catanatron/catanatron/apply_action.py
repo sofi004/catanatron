@@ -440,12 +440,42 @@ def apply_maritime_trade(state: State, action: Action):
 
 def apply_offer_trade(state: State, action: Action):
     state.is_resolving_trade = True
-    state.current_trade = (*action.value, state.current_turn_index)
+    # 11-length tuple: (offered(5), asked(5), target_color) -> targets = that color only
+    value = action.value
+    
+    if isinstance(value, (list, tuple)) and len(value) == 10:
+        trade_vec = tuple(value)
+        targets = [c != action.color for c in state.colors]
+    elif isinstance(value, (list, tuple)) and len(value) == 11:
+        trade_vec = tuple(value[:10])
+        target_color = value[10]
+        targets = [c == target_color for c in state.colors]
+    else:
+        # Fallback to legacy behavior
+        trade_vec = tuple(value[:10]) if isinstance(value, (list, tuple)) else tuple()
+        targets = [c != action.color for c in state.colors]
 
-    # go in seating order; order won't matter because of "acceptees hook"
-    state.current_player_index = next(
-        i for i, c in enumerate(state.colors) if c != action.color
-    )  # cant ask yourself
+    state.current_trade = (*trade_vec, state.current_turn_index)
+    state.current_trade_targets = tuple(targets)
+
+    # find next targeted player in seating order after the offering player's turn
+    num = len(state.colors)
+    offering_index = state.color_to_index[action.color]
+    next_player = None
+    for offset in range(1, num):
+        i = (state.current_turn_index + offset) % num
+        if state.current_trade_targets[i] and i != offering_index:
+            next_player = i
+            break
+
+    if next_player is None:
+        # No valid targets; cancel trade
+        reset_trading_state(state)
+        state.current_player_index = state.current_turn_index
+        state.current_prompt = ActionPrompt.PLAY_TURN
+        return ActionRecord(action=action, result=None)
+
+    state.current_player_index = next_player
     state.current_prompt = ActionPrompt.DECIDE_TRADE
     return ActionRecord(action=action, result=None)
 
@@ -458,16 +488,13 @@ def apply_accept_trade(state: State, action: Action):
     state.acceptees = tuple(new_acceptess)
 
     try:
-        # keep going around table w/o asking yourself or players that have answered
         state.current_player_index = next(
             i
-            for i, c in enumerate(state.colors)
-            if c != action.color and i > state.current_player_index
+            for i, _ in enumerate(state.colors)
+            if i > state.current_player_index and state.current_trade_targets[i]
         )
-        # .is_resolving_trade, .current_trade, .current_prompt, .acceptees stay the same
     except StopIteration:
         # by this action, there is at least 1 acceptee, so go to DECIDE_ACCEPTEES
-        # .is_resolving_trade, .current_trade, .acceptees stay the same
         state.current_player_index = state.current_turn_index
         state.current_prompt = ActionPrompt.DECIDE_ACCEPTEES
 
@@ -476,13 +503,11 @@ def apply_accept_trade(state: State, action: Action):
 
 def apply_reject_trade(state: State, action: Action):
     try:
-        # keep going around table w/o asking yourself or players that have answered
         state.current_player_index = next(
             i
-            for i, c in enumerate(state.colors)
-            if c != action.color and i > state.current_player_index
+            for i, _ in enumerate(state.colors)
+            if i > state.current_player_index and state.current_trade_targets[i]
         )
-        # .is_resolving_trade, .current_trade, .current_prompt, .acceptees stay the same
     except StopIteration:
         # if no acceptees at this point, go back to PLAY_TURN
         if sum(state.acceptees) == 0:
@@ -492,7 +517,6 @@ def apply_reject_trade(state: State, action: Action):
             state.current_prompt = ActionPrompt.PLAY_TURN
         else:
             # go to offering player with all the answers
-            # .is_resolving_trade, .current_trade, .acceptees stay the same
             state.current_player_index = state.current_turn_index
             state.current_prompt = ActionPrompt.DECIDE_ACCEPTEES
 
@@ -602,3 +626,4 @@ def reset_trading_state(state):
     state.is_resolving_trade = False
     state.current_trade = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
     state.acceptees = tuple(False for _ in state.colors)
+    state.current_trade_targets = tuple(False for _ in state.colors)

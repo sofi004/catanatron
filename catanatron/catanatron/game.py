@@ -23,6 +23,24 @@ def is_valid_action(playable_actions, state: State, action: Action) -> bool:
     """True if its a valid action right now. An action is valid
     if its in playable_actions or if its a OFFER_TRADE in the right time."""
     if action.action_type == ActionType.OFFER_TRADE:
+        # If offer is targeted (11-length), validate target isn't self and is a known player
+        if isinstance(action.value, (list, tuple)) and len(action.value) >= 11:
+            target = action.value[10]
+            # Accept target as enum or string; try to resolve strings to Color values
+            if isinstance(target, str):
+                resolved = None
+                for c in state.colors:
+                    if c.name == target or c.name == target.upper():
+                        resolved = c
+                        break
+                target = resolved
+
+            if target is None:
+                return False
+            if target == action.color:
+                return False
+            if target not in state.colors:
+                return False
         return (
             state.current_color() == action.color
             and state.current_prompt == ActionPrompt.PLAY_TURN
@@ -37,8 +55,23 @@ def is_valid_trade(action_value):
     """Checks the value of a OFFER_TRADE does not
     give away resources or trade matching resources.
     """
-    offering = action_value[:5]
-    asking = action_value[5:]
+    # Support new 11-length (offered(5), asked(5), target_color).
+    if not isinstance(action_value, (list, tuple)):
+        return False
+
+    # Extract numeric vectors; if a target is present, ignore it.
+    if len(action_value) >= 10:
+        offered_raw = action_value[:5]
+        asked_raw = action_value[5:10]
+    else:
+        return False
+
+    try:
+        offering = [int(x) for x in offered_raw]
+        asking = [int(x) for x in asked_raw]
+    except Exception:
+        return False
+
     if sum(offering) == 0 or sum(asking) == 0:
         return False  # cant give away cards
 

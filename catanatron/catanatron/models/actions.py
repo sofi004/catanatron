@@ -345,10 +345,27 @@ def P_to_P_trade_possibilities(state, color) -> List[Action]:
     hand_freqdeck = [
         player_num_resource_cards(state, color, resource) for resource in RESOURCES
     ]
+    hand_freqdeck_other_players = [0] * len(state.colors)
+    for c in state.colors:
+        hand_freqdeck_other_players[state.color_to_index[c]] = [
+            player_num_resource_cards(state, c, resource) for resource in RESOURCES
+        ]
+
     trade_offers = inner_P_to_P_trade_possibilities(hand_freqdeck)
 
+    # For each potential 10-length trade offer, generate a separate targeted
+    # offer for every other player (so AI will consider offers to specific
+    # recipients). The action.value shape becomes 11-length: (offered(5), asked(5), target_color)
+    offers_with_targets = set()
+    for t in trade_offers:
+        for other_color in state.colors:
+            if other_color != color:
+                for r, res in enumerate(t[5:10]):  # only need to check asked resources, since offered are guaranteed by hand_freqdeck
+                    if res > 0 and hand_freqdeck_other_players[state.color_to_index[other_color]][r] >= res:
+                        offers_with_targets.add((*t, other_color))
+                        break  # no need to check other resources for this player if one is valid
     return list(
-        map(lambda t: Action(color, ActionType.OFFER_TRADE, t), trade_offers)
+        map(lambda t: Action(color, ActionType.OFFER_TRADE, t), offers_with_targets)
     )
 
 def inner_P_to_P_trade_possibilities(hand_freqdeck):
@@ -370,11 +387,17 @@ def inner_P_to_P_trade_possibilities(hand_freqdeck):
                     trade_offers.add(trade_offer_1)
 
                     # offer 1, ask 2
-                    trade_offer_2 = tuple(
+                    trade_offer_12 = tuple(
                         [1 if i == index else 0 for i in range(len(RESOURCES))]
                         + [2 if i == j_index else 0 for i in range(len(RESOURCES))]
                     )
-                    trade_offers.add(trade_offer_2)
-    
+                    trade_offers.add(trade_offer_12)
+
+                    # offer 2, ask 1
+                    trade_offer_21 = tuple(
+                        [2 if i == index else 0 for i in range(len(RESOURCES))]
+                        + [1 if i == j_index else 0 for i in range(len(RESOURCES))]
+                    )
+                    trade_offers.add(trade_offer_21)
 
     return trade_offers
