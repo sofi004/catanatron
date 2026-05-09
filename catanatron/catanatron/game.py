@@ -227,11 +227,24 @@ class Game:
         """
         # Ask Player for action
         player = self.state.current_player()
-        action = (
-            decide_fn(player, self, self.playable_actions)
-            if decide_fn is not None
-            else player.decide(self, self.playable_actions)
-        )
+        if player.is_bot and self.state.current_prompt == ActionPrompt.DECIDE_ACCEPTEES:
+            confirm_actions = [
+                a for a in self.playable_actions if a.action_type == ActionType.CONFIRM_TRADE
+            ]
+            if len(confirm_actions) > 0:
+                action = confirm_actions[0]
+            else:
+                action = (
+                    decide_fn(player, self, self.playable_actions)
+                    if decide_fn is not None
+                    else player.decide(self, self.playable_actions)
+                )
+        else:
+            action = (
+                decide_fn(player, self, self.playable_actions)
+                if decide_fn is not None
+                else player.decide(self, self.playable_actions)
+            )
 
         # Call accumulator.step here, because we want game_before_action, action
         if len(accumulators) > 0:

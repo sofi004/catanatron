@@ -2,6 +2,7 @@ import math
 from collections import defaultdict
 
 from catanatron.game import Game
+from catanatron.models.actions import generate_playable_actions
 from catanatron.models.map import number_probability
 from catanatron.models.enums import (
     DEVELOPMENT_CARDS,
@@ -11,6 +12,7 @@ from catanatron.models.enums import (
     Action,
     ActionRecord,
     ActionType,
+    ActionPrompt,
 )
 from catanatron.state_functions import (
     get_player_buildings,
@@ -31,8 +33,6 @@ DETERMINISTIC_ACTIONS = set(
         ActionType.PLAY_YEAR_OF_PLENTY,
         ActionType.PLAY_ROAD_BUILDING,
         ActionType.MARITIME_TRADE,
-        ActionType.OFFER_TRADE,
-        ActionType.ACCEPT_TRADE,
         ActionType.REJECT_TRADE,
         ActionType.CONFIRM_TRADE,
         ActionType.CANCEL_TRADE,
@@ -48,10 +48,122 @@ def execute_deterministic(game, action):
     return [(copy, 1)]
 
 
+def execute_offer_trade_spectrum(game: Game, action: Action):
+    """For targeted OFFER_TRADE (11-length), assume acceptance and directly simulate
+    the completed trade state with probability 1.0. This avoids search getting stuck
+    in negotiation states and lets minimax evaluate the actual trade outcome.
+    """
+    value = action.value
+    # Check if this is a targeted trade (11-tuple format)
+    if not isinstance(value, (list, tuple)) or len(value) < 11:
+        # Fall back to deterministic behavior for non-targeted trades
+        return execute_deterministic(game, action)
+    
+    # Extract trade components
+    offered = value[:5]
+    asked = value[5:10]
+    target_color = value[10]
+    
+    # Resolve string target to Color enum if necessary
+    if isinstance(target_color, str):
+        resolved = None
+        for c in game.state.colors:
+            if c.name == target_color or c.name == target_color.upper():
+                resolved = c
+                break
+        target_color = resolved
+    
+    if target_color is None or target_color == action.color:
+        # Invalid target, fall back to deterministic
+        return execute_deterministic(game, action)
+    
+    # Simulate the completed trade directly
+    game_copy = game.copy()
+    state = game_copy.state
+    
+    offerer_idx = state.color_to_index[action.color]
+    target_idx = state.color_to_index[target_color]
+    offerer_key = f"P{offerer_idx}"
+    target_key = f"P{target_idx}"
+    
+    # Transfer resources
+    for i, resource in enumerate(RESOURCES):
+        # Offerer gives offered[i], receives asked[i]
+        state.player_state[f"{offerer_key}_{resource}_IN_HAND"] -= offered[i]
+        state.player_state[f"{offerer_key}_{resource}_IN_HAND"] += asked[i]
+        
+        # Target receives offered[i], gives asked[i]
+        state.player_state[f"{target_key}_{resource}_IN_HAND"] += offered[i]
+        state.player_state[f"{target_key}_{resource}_IN_HAND"] -= asked[i]
+    
+    # Transition state back to PLAY_TURN (as if trade completed)
+    state.is_resolving_trade = False
+    state.current_trade = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+    state.acceptees = tuple(False for _ in state.colors)
+    state.current_trade_targets = tuple(False for _ in state.colors)
+    state.current_player_index = state.current_turn_index
+    state.current_prompt = ActionPrompt.PLAY_TURN
+    game_copy.playable_actions = generate_playable_actions(state)
+    
+    return [(game_copy, 1.0)]
+
+
+def execute_accept_trade_spectrum(game: Game, action: Action):
+    """For ACCEPT_TRADE, assume the trade eventually completes and directly simulate
+    the final trade state with probability 1.0. If the accepting player is evaluating
+    their own trade acceptance, they should see the actual benefit of accepting.
+    """
+    state = game.state
+    
+    # Extract current trade components
+    offered = state.current_trade[:5]
+    asked = state.current_trade[5:10]
+    offerer_color = state.colors[state.current_turn_index]
+    accepter_color = action.color
+    
+    if offerer_color is None or accepter_color is None:
+        # Invalid state, fall back to deterministic
+        return execute_deterministic(game, action)
+    
+    # Simulate the completed trade directly
+    game_copy = game.copy()
+    state_copy = game_copy.state
+    
+    offerer_idx = state_copy.color_to_index[offerer_color]
+    accepter_idx = state_copy.color_to_index[accepter_color]
+    offerer_key = f"P{offerer_idx}"
+    accepter_key = f"P{accepter_idx}"
+    
+    # Transfer resources
+    for i, resource in enumerate(RESOURCES):
+        # Offerer gives offered[i], receives asked[i]
+        state_copy.player_state[f"{offerer_key}_{resource}_IN_HAND"] -= offered[i]
+        state_copy.player_state[f"{offerer_key}_{resource}_IN_HAND"] += asked[i]
+        
+        # Accepter receives offered[i], gives asked[i]
+        state_copy.player_state[f"{accepter_key}_{resource}_IN_HAND"] += offered[i]
+        state_copy.player_state[f"{accepter_key}_{resource}_IN_HAND"] -= asked[i]
+    
+    # Transition state back to PLAY_TURN (as if trade completed)
+    state_copy.is_resolving_trade = False
+    state_copy.current_trade = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+    state_copy.acceptees = tuple(False for _ in state_copy.colors)
+    state_copy.current_trade_targets = tuple(False for _ in state_copy.colors)
+    state_copy.current_player_index = state_copy.current_turn_index
+    state_copy.current_prompt = ActionPrompt.PLAY_TURN
+    game_copy.playable_actions = generate_playable_actions(state_copy)
+    
+    return [(game_copy, 1.0)]
+
+
 def execute_spectrum(game: Game, action: Action):
     """Returns [(game_copy, proba), ...] tuples for result of given action.
     Result probas should add up to 1. Does not modify self"""
-    if action.action_type in DETERMINISTIC_ACTIONS:
+    if action.action_type == ActionType.OFFER_TRADE:
+        return execute_offer_trade_spectrum(game, action)
+    elif action.action_type == ActionType.ACCEPT_TRADE:
+        return execute_accept_trade_spectrum(game, action)
+    elif action.action_type in DETERMINISTIC_ACTIONS:
         return execute_deterministic(game, action)
     elif action.action_type == ActionType.BUY_DEVELOPMENT_CARD:
         results = []
