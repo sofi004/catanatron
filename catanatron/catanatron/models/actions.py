@@ -360,6 +360,9 @@ def P_to_P_trade_possibilities(state, color) -> List[Action]:
     for t in trade_offers:
         for other_color in state.colors:
             if other_color != color:
+                rejection_key = (color, other_color, tuple(t))
+                if rejection_key in state.rejected_trade_offers:
+                    continue
                 for r, res in enumerate(t[5:10]):  # only need to check asked resources, since offered are guaranteed by hand_freqdeck
                     if res > 0 and hand_freqdeck_other_players[state.color_to_index[other_color]][r] >= res:
                         offers_with_targets.add((*t, other_color))

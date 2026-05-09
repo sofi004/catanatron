@@ -146,6 +146,9 @@ class State:
             # by the offer (True == targeted). Used to skip non-targeted players
             # during the accept/reject sequence.
             self.current_trade_targets = tuple(False for _ in self.colors)
+            # Per-turn cache of rejected targeted offers.
+            # Key shape: (offerer_color, target_color, offered_asked_10_tuple)
+            self.rejected_trade_offers = set()
 
     def current_player(self):
         """Helper for accessing Player instance who should decide next"""
@@ -199,5 +202,6 @@ class State:
         state_copy.current_trade = self.current_trade
         state_copy.acceptees = self.acceptees
         state_copy.current_trade_targets = self.current_trade_targets
+        state_copy.rejected_trade_offers = self.rejected_trade_offers.copy()
 
         return state_copy

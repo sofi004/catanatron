@@ -518,6 +518,11 @@ def apply_accept_trade(state: State, action: Action):
 
 
 def apply_reject_trade(state: State, action: Action):
+    trade_10 = tuple(state.current_trade[:10])
+    offerer_color = state.colors[state.current_turn_index]
+    rejector_color = action.color
+    state.rejected_trade_offers.add((offerer_color, rejector_color, trade_10))
+
     # find next targeted player after the current one, wrapping around
     num = len(state.colors)
     offering_index = state.current_turn_index
@@ -652,6 +657,7 @@ def advance_turn(state, direction=1):
     state.current_player_index = next_index
     state.current_turn_index = next_index
     state.num_turns += 1
+    state.rejected_trade_offers = set()
 
 
 def next_player_index(state, direction=1):
