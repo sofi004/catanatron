@@ -26,7 +26,8 @@ const PLAYER_ARCHETYPES: Array<{
 }> = [
   { value: "HUMAN", label: "Human" },
   { value: "RANDOM", label: "Random" },
-  { value: "CATANATRON", label: "Catanatron" },
+  { value: "CATANATRON-MINMAX", label: "Catanatron Minmax" },
+  { value: "CATANATRON-MCTS", label: "Catanatron MCTS" },
   { value: "WEIGHTED_RANDOM", label: "Weighted Random" },
 ];
 
@@ -41,7 +42,7 @@ export default function HomePage() {
   const [friendlyRobber, setFriendlyRobber] = useState(true);
   const [players, setPlayers] = useState<PlayerArchetype[]>([
     "HUMAN",
-    "CATANATRON",
+    "CATANATRON-MINMAX",
   ]);
   const navigate = useNavigate();
   const humanCount = players.filter((player) => player === "HUMAN").length;

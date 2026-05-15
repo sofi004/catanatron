@@ -6,7 +6,8 @@ import type { Color, GameAction, GameState } from "./api.types";
 export type PlayerArchetype =
   | "HUMAN"
   | "RANDOM"
-  | "CATANATRON"
+  | "CATANATRON-MINMAX"
+  | "CATANATRON-MCTS"
   | "WEIGHTED_RANDOM";
 export type MapTemplate = "BASE" | "MINI" | "TOURNAMENT";
 export type StateIndex = number | `${number}` | "latest";

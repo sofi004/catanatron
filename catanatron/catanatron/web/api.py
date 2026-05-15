@@ -11,6 +11,7 @@ from catanatron.game import Game
 from catanatron.models.map import build_map
 from catanatron.players.value import ValueFunctionPlayer
 from catanatron.players.minimax import AlphaBetaPlayer
+from catanatron.players.mcts import MCTSPlayer
 from catanatron.players.weighted_random import WeightedRandomPlayer
 from catanatron.web.mcts_analysis import GameAnalyzer
 
@@ -19,8 +20,10 @@ VALID_MAP_TEMPLATES = {"BASE", "MINI", "TOURNAMENT"}
 
 
 def player_factory(player_key):
-    if player_key[0] == "CATANATRON":
+    if player_key[0] == "CATANATRON-MINMAX":
         return AlphaBetaPlayer(player_key[1], 2, True)
+    elif player_key[0] == "CATANATRON-MCTS":
+        return MCTSPlayer(player_key[1], num_simulations=10, prunning=True)
     elif player_key[0] == "WEIGHTED_RANDOM":
         return WeightedRandomPlayer(player_key[1])
     elif player_key[0] == "RANDOM":
