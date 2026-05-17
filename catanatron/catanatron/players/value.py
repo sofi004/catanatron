@@ -1,5 +1,6 @@
 import random
 
+from catanatron import game
 from catanatron.state_functions import (
     get_longest_road_length,
     get_played_dev_cards,
@@ -188,9 +189,11 @@ def relationship_aware_fn(params=DEFAULT_WEIGHTS, social_memory=None):
             if enemy_color == p0_color:
                 continue
             
-            # Get this specific enemy's production
+
+            enemy_key = player_key(game.state, enemy_color)
+
             enemy_sample = production_features(game, enemy_color)
-            enemy_prod = value_production(enemy_sample, "P1", False)
+            enemy_prod = value_production(enemy_sample, enemy_key, False)
 
             dynamic_enemy_weight = params["enemy_production"]
 
