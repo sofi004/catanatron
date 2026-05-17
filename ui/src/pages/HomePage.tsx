@@ -27,6 +27,7 @@ const PLAYER_ARCHETYPES: Array<{
   { value: "HUMAN", label: "Human" },
   { value: "RANDOM", label: "Random" },
   { value: "CATANATRON-MINMAX", label: "Catanatron Minmax" },
+  { value: "CATANATRON-MINMAX-RELATIONSHIPS", label: "Catanatron Minmax Relationships" },
   { value: "CATANATRON-MCTS", label: "Catanatron MCTS" },
   { value: "WEIGHTED_RANDOM", label: "Weighted Random" },
 ];

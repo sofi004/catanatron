@@ -38,11 +38,18 @@ class AlphaBetaPlayer(Player):
         self.depth = int(depth)
         self.prunning = str(prunning).lower() != "false"
         self.value_fn_builder_name = (
-            "contender_fn" if value_fn_builder_name == "C" else "base_fn"
+            "relationship_aware_fn" if value_fn_builder_name == "R"
+            else "contender_fn" if value_fn_builder_name == "C" else "base_fn"
         )
         self.params = params
         self.use_value_function = None
         self.epsilon = epsilon
+        self.social_memory = { 
+            "relationships": {},
+            "grudges": {}
+           
+        }
+        self.last_processed_idx = 0
 
     def value_function(self, game, p0_color):
         raise NotImplementedError
@@ -51,8 +58,39 @@ class AlphaBetaPlayer(Player):
         if self.prunning:
             return list_prunned_actions(game)
         return game.playable_actions
+    
+    def update_memory(self, game):
+        history = game.state.action_records
+        
+        # Ensure all players in the game have an entry in memory
+        for p in game.state.players:
+            c = p.color
+            if c not in self.social_memory["relationships"]:
+                self.social_memory["relationships"][c] = 1.0
+            if c not in self.social_memory["grudges"]:
+                self.social_memory["grudges"][c] = 0
+
+        while self.last_processed_idx < len(history):
+            record = history[self.last_processed_idx]
+            self.last_processed_idx += 1
+            action = record.action
+            
+            if action.action_type == "MOVE_ROBBER":
+                thief = action.color
+                # Use .getattr safely because target_color might be None
+                victim = getattr(action, 'target_color', None)
+                
+                if victim == self.color and thief != self.color:
+                    # Tank the relationship
+                    old_rel = self.social_memory["relationships"].get(thief, 1.0)
+                    self.social_memory["relationships"][thief] = max(0.2, old_rel - 0.2)
+                    
+                    # Add a grudge
+                    self.social_memory["grudges"][thief] = self.social_memory["grudges"].get(thief, 0) + 1
 
     def decide(self, game: Game, playable_actions):
+        self.update_memory(game)
+
         actions = self.get_actions(game)
         if len(actions) == 1:
             return actions[0]
@@ -65,7 +103,7 @@ class AlphaBetaPlayer(Player):
         node = DebugStateNode(state_id, self.color)  # i think it comes from outside
         deadline = start + MAX_SEARCH_TIME_SECS
         result = self.alphabeta(
-            game.copy(), self.depth, float("-inf"), float("inf"), deadline, node
+            game.copy(), self.depth, float("-inf"), float("inf"), deadline, node, self.social_memory
         )
         # print("Decision Results:", self.depth, len(actions), time.time() - start)
         # if game.state.num_turns > 10:
@@ -81,7 +119,7 @@ class AlphaBetaPlayer(Player):
             + f"(depth={self.depth},value_fn={self.value_fn_builder_name},prunning={self.prunning})"
         )
 
-    def alphabeta(self, game, depth, alpha, beta, deadline, node):
+    def alphabeta(self, game, depth, alpha, beta, deadline, node, social_memory=None):
         """AlphaBeta MiniMax Algorithm.
 
         NOTE: Sometimes returns a value, sometimes an (action, value). This is
@@ -95,6 +133,7 @@ class AlphaBetaPlayer(Player):
                 self.value_fn_builder_name,
                 self.params,
                 self.value_function if self.use_value_function else None,
+                social_memory
             )
             value = value_fn(game, self.color)
 
@@ -118,7 +157,7 @@ class AlphaBetaPlayer(Player):
                     )
 
                     result = self.alphabeta(
-                        outcome, depth - 1, alpha, beta, deadline, out_node
+                        outcome, depth - 1, alpha, beta, deadline, out_node, social_memory
                     )
                     value = result[1]
                     expected_value += proba * value
@@ -151,7 +190,7 @@ class AlphaBetaPlayer(Player):
                     )
 
                     result = self.alphabeta(
-                        outcome, depth - 1, alpha, beta, deadline, out_node
+                        outcome, depth - 1, alpha, beta, deadline, out_node, social_memory
                     )
                     value = result[1]
                     expected_value += proba * value
@@ -229,7 +268,7 @@ class SameTurnAlphaBetaPlayer(AlphaBetaPlayer):
     Same like AlphaBeta but only within turn
     """
 
-    def alphabeta(self, game, depth, alpha, beta, deadline, node):
+    def alphabeta(self, game, depth, alpha, beta, deadline, node, social_memory=None):
         """AlphaBeta MiniMax Algorithm.
 
         NOTE: Sometimes returns a value, sometimes an (action, value). This is
@@ -248,6 +287,7 @@ class SameTurnAlphaBetaPlayer(AlphaBetaPlayer):
                 self.value_fn_builder_name,
                 self.params,
                 self.value_function if self.use_value_function else None,
+                social_memory
             )
             value = value_fn(game, self.color)
 
@@ -269,7 +309,7 @@ class SameTurnAlphaBetaPlayer(AlphaBetaPlayer):
                 )
 
                 result = self.alphabeta(
-                    outcome, depth - 1, alpha, beta, deadline, out_node
+                    outcome, depth - 1, alpha, beta, deadline, out_node, social_memory
                 )
                 value = result[1]
                 expected_value += proba * value

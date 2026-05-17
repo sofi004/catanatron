@@ -120,6 +120,101 @@ def base_fn(params=DEFAULT_WEIGHTS):
 
     return fn
 
+def relationship_aware_fn(params=DEFAULT_WEIGHTS, social_memory=None):
+    def fn(game, p0_color):
+        production_features = build_production_features(True)
+        our_production_sample = production_features(game, p0_color)
+        enemy_production_sample = production_features(game, p0_color)
+        production = value_production(our_production_sample, "P0")
+        enemy_production = value_production(enemy_production_sample, "P1", False)
+
+        key = player_key(game.state, p0_color)
+        longest_road_length = get_longest_road_length(game.state, p0_color)
+
+        reachability_sample = reachability_features(game, p0_color, 2)
+        features = [f"P0_0_ROAD_REACHABLE_{resource}" for resource in RESOURCES]
+        reachable_production_at_zero = sum([reachability_sample[f] for f in features])
+        features = [f"P0_1_ROAD_REACHABLE_{resource}" for resource in RESOURCES]
+        reachable_production_at_one = sum([reachability_sample[f] for f in features])
+
+        hand_sample = resource_hand_features(game, p0_color)
+        features = [f"P0_{resource}_IN_HAND" for resource in RESOURCES]
+        distance_to_city = (
+            max(2 - hand_sample["P0_WHEAT_IN_HAND"], 0)
+            + max(3 - hand_sample["P0_ORE_IN_HAND"], 0)
+        ) / 5.0  # 0 means good. 1 means bad.
+        distance_to_settlement = (
+            max(1 - hand_sample["P0_WHEAT_IN_HAND"], 0)
+            + max(1 - hand_sample["P0_SHEEP_IN_HAND"], 0)
+            + max(1 - hand_sample["P0_BRICK_IN_HAND"], 0)
+            + max(1 - hand_sample["P0_WOOD_IN_HAND"], 0)
+        ) / 4.0  # 0 means good. 1 means bad.
+        hand_synergy = (2 - distance_to_city - distance_to_settlement) / 2
+
+        num_in_hand = player_num_resource_cards(game.state, p0_color)
+        discard_penalty = params["discard_penalty"] if num_in_hand > 7 else 0
+
+        # blockability
+        buildings = game.state.buildings_by_color[p0_color]
+        owned_nodes = buildings[SETTLEMENT] + buildings[CITY]
+        owned_tiles = set()
+        for n in owned_nodes:
+            owned_tiles.update(game.state.board.map.adjacent_tiles[n])
+        num_tiles = len(owned_tiles)
+
+        # TODO: Simplify to linear(?)
+        num_buildable_nodes = len(game.state.board.buildable_node_ids(p0_color))
+        longest_road_factor = (
+            params["longest_road"] if num_buildable_nodes == 0 else 0.1
+        )
+
+        score = float(
+            game.state.player_state[f"{key}_VICTORY_POINTS"] * params["public_vps"]
+            + production * params["production"]
+            + enemy_production * params["enemy_production"]
+            + reachable_production_at_zero * params["reachable_production_0"]
+            + reachable_production_at_one * params["reachable_production_1"]
+            + hand_synergy * params["hand_synergy"]
+            + num_buildable_nodes * params["buildable_nodes"]
+            + num_tiles * params["num_tiles"]
+            + num_in_hand * params["hand_resources"]
+            + discard_penalty
+            + longest_road_length * longest_road_factor
+            + player_num_dev_cards(game.state, p0_color) * params["hand_devs"]
+            + get_played_dev_cards(game.state, p0_color, "KNIGHT") * params["army_size"]
+        )
+        # Iterate through all opponents and score their production using dynamic weights
+        for enemy_color in game.state.colors:
+            if enemy_color == p0_color:
+                continue
+            
+            # Get this specific enemy's production
+            enemy_sample = production_features(game, enemy_color)
+            enemy_prod = value_production(enemy_sample, "P1", False)
+
+            dynamic_enemy_weight = params["enemy_production"]
+
+            # If social memory vectors are injected, alter the baseline weight parameter
+            if social_memory is not None:
+                relationship = social_memory["relationships"].get(enemy_color, 1.0)
+                grudge_count = social_memory["grudges"].get(enemy_color, 0)
+
+                # Trade Relationship impact: 
+                # Good relationship (2.0) -> Multiplier becomes 0.0 (Stop hurting them)
+                # Bad relationship (0.2)  -> Multiplier becomes 1.8 (Hate them more)
+                dynamic_enemy_weight *= (2.0 - relationship)
+
+                # Robber Grudge impact: 
+                # Add an additive extra penalty weight for every unreturned robbery
+                dynamic_enemy_weight += (grudge_count * -1.5e8)
+
+            # Combine this dynamic weight coefficient with the enemy's production points
+            score += (enemy_prod * dynamic_enemy_weight)
+
+        return float(score)
+
+    return fn
+
 
 def value_production(sample, player_name="P0", include_variety=True):
     proba_point = 2.778 / 100
@@ -171,7 +266,7 @@ class ValueFunctionPlayer(Player):
             game_copy = game.copy()
             game_copy.execute(action)
 
-            value_fn = get_value_fn(self.value_fn_builder_name, self.params)
+            value_fn = get_value_fn(self.value_fn_builder_name, self.params, social_memory=self.social_memory)
             value = value_fn(game_copy, self.color)
             if value > best_value:
                 best_value = value
@@ -183,12 +278,14 @@ class ValueFunctionPlayer(Player):
         return super().__str__() + f"(value_fn={self.value_fn_builder_name})"
 
 
-def get_value_fn(name, params, value_function=None):
+def get_value_fn(name, params, value_function=None, social_memory=None):
     if value_function is not None:
         return value_function
     elif name == "base_fn":
         return base_fn(DEFAULT_WEIGHTS)
     elif name == "contender_fn":
         return contender_fn(params)
+    elif name == "relationship_aware_fn":
+        return relationship_aware_fn(params, social_memory)
     else:
         raise ValueError

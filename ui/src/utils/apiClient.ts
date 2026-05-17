@@ -7,6 +7,7 @@ export type PlayerArchetype =
   | "HUMAN"
   | "RANDOM"
   | "CATANATRON-MINMAX"
+  | "CATANATRON-MINMAX-RELATIONSHIPS"
   | "CATANATRON-MCTS"
   | "WEIGHTED_RANDOM";
 export type MapTemplate = "BASE" | "MINI" | "TOURNAMENT";
