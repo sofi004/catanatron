@@ -68,6 +68,7 @@ def base_fn(params=DEFAULT_WEIGHTS):
                 value_production(prod_sample, f"P{i}", False)
                 for i in range(1, num_players)
             )
+            enemy_production /= (num_players - 1)  # average enemy production
 
         key = player_key(game.state, p0_color)
         longest_road_length = get_longest_road_length(game.state, p0_color)
@@ -132,6 +133,7 @@ def relationship_aware_fn(params=DEFAULT_WEIGHTS, social_memory=None):
         production_features = build_production_features(True)
         prod_sample = production_features(game, p0_color)
         production = value_production(prod_sample, "P0")
+        num_players = len(game.state.colors)
         key = player_key(game.state, p0_color)
         longest_road_length = get_longest_road_length(game.state, p0_color)
 
@@ -210,7 +212,7 @@ def relationship_aware_fn(params=DEFAULT_WEIGHTS, social_memory=None):
                 dynamic_enemy_weight += (grudge_count * -1.5e8)
 
             # Combine this dynamic weight coefficient with the enemy's production points
-            score += (-enemy_base * dynamic_enemy_weight)
+            score += ((-enemy_base * dynamic_enemy_weight)/(num_players-1))  # average enemy impact
 
         return float(score)
 
