@@ -59,6 +59,14 @@ CLI_PLAYERS = [
         AlphaBetaPlayer,
     ),
     CliPlayer(
+        "ABR",
+        "RelationshipAwareAlphaBetaPlayer",
+        "AlphaBetaPlayer variant that uses the relationship-aware value function. Params are DEPTH, PRUNNING.",
+        lambda color, depth=2, prunning=False: AlphaBetaPlayer(
+            color, depth, prunning, "R"
+        ),
+    ),
+    CliPlayer(
         "SAB",
         "SameTurnAlphaBetaPlayer",
         "AlphaBeta but searches only within turn",
