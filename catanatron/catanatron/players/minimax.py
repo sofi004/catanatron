@@ -120,6 +120,13 @@ class AlphaBetaPlayer(Player):
                         old_rel = self.social_memory["relationships"].get(trader, 1.0)
                         self.social_memory["relationships"][trader] = max(0.2, old_rel - 0.01)
 
+        for player in self.social_memory["grudges"]:
+            if self.social_memory["grudges"][player] > 0:
+                self.social_memory["grudges"][player] = max(0, self.social_memory["grudges"][player] - 0.1)
+        for player in self.social_memory["relationships"]:
+            if self.social_memory["relationships"][player] > 0.2:
+                self.social_memory["relationships"][player] = min(2.0, self.social_memory["relationships"][player] + 0.05)
+
 
     def decide(self, game: Game, playable_actions):
         self.update_memory(game)
