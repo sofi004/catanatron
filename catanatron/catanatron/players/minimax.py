@@ -3,12 +3,13 @@ import random
 from typing import Any
 
 from catanatron.game import Game
-from catanatron.models.player import Player
+from catanatron.models.player import Player, Color
 from catanatron.players.tree_search_utils import expand_spectrum, list_prunned_actions
 from catanatron.players.value import (
     DEFAULT_WEIGHTS,
     get_value_fn,
 )
+from catanatron.models.enums import Action, ActionType
 
 
 ALPHABETA_DEFAULT_DEPTH = 2
@@ -74,19 +75,51 @@ class AlphaBetaPlayer(Player):
             record = history[self.last_processed_idx]
             self.last_processed_idx += 1
             action = record.action
-            
-            if action.action_type == "MOVE_ROBBER":
+
+            if hasattr(action, 'action_type') and action.action_type == "MOVE_ROBBER":
                 thief = action.color
                 # Use .getattr safely because target_color might be None
                 victim = getattr(action, 'target_color', None)
                 
+                # If I was the victim, reduce relationship and add grudge if it was a different player
                 if victim == self.color and thief != self.color:
                     # Tank the relationship
                     old_rel = self.social_memory["relationships"].get(thief, 1.0)
-                    self.social_memory["relationships"][thief] = max(0.2, old_rel - 0.2)
-                    
+                    self.social_memory["relationships"][thief] = max(0.2, old_rel - 0.02)
+
                     # Add a grudge
                     self.social_memory["grudges"][thief] = self.social_memory["grudges"].get(thief, 0) + 1
+                # If I robbed the thief, reduce grudge if exists
+                elif thief == self.color and victim in self.social_memory["grudges"]:
+                    # Reduce grudge if retribution happens
+                    self.social_memory["grudges"][victim] = max(0, self.social_memory["grudges"][victim] - 1)
+
+                 # If it didn't robbe no one but it was a different player, reduce grudge if exists
+                elif victim is None and thief != self.color:
+                    if thief in self.social_memory["grudges"]:
+                        self.social_memory["grudges"][thief] = 0
+                
+                # If thief robbed someone else, reduce grudge if exists
+                elif victim != self.color and thief != self.color:
+                    if thief in self.social_memory["grudges"]:
+                        self.social_memory["grudges"][thief] = max(0, self.social_memory["grudges"][thief] - 1)   
+
+            elif hasattr(action, 'action_type') and action.action_type == ActionType.ACCEPT_TRADE:
+                if action.value:
+                    trader = action.color
+                    if trader != self.color:
+                        # Increase relationship for successful trade
+                        old_rel = self.social_memory["relationships"].get(trader, 1.0)
+                        self.social_memory["relationships"][trader] = min(2.0, old_rel + 0.1)
+
+            elif hasattr(action, 'action_type') and action.action_type == ActionType.REJECT_TRADE:
+                # Unsuccessful trade attempt might indicate a strained relationship
+                if not action.value:  # Assuming action.value indicates failure
+                    trader = action.color
+                    if trader != self.color:
+                        old_rel = self.social_memory["relationships"].get(trader, 1.0)
+                        self.social_memory["relationships"][trader] = max(0.2, old_rel - 0.01)
+
 
     def decide(self, game: Game, playable_actions):
         self.update_memory(game)
