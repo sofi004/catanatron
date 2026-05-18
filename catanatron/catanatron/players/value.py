@@ -58,10 +58,16 @@ CONTENDER_WEIGHTS = {
 def base_fn(params=DEFAULT_WEIGHTS):
     def fn(game, p0_color):
         production_features = build_production_features(True)
-        our_production_sample = production_features(game, p0_color)
-        enemy_production_sample = production_features(game, p0_color)
-        production = value_production(our_production_sample, "P0")
-        enemy_production = value_production(enemy_production_sample, "P1", False)
+        prod_sample = production_features(game, p0_color)
+        production = value_production(prod_sample, "P0")
+        num_players = len(game.state.colors)
+        if num_players == 2:
+            enemy_production = value_production(prod_sample, "P1", False)
+        else:
+            enemy_production = sum(
+                value_production(prod_sample, f"P{i}", False)
+                for i in range(1, num_players)
+            )
 
         key = player_key(game.state, p0_color)
         longest_road_length = get_longest_road_length(game.state, p0_color)
@@ -124,11 +130,8 @@ def base_fn(params=DEFAULT_WEIGHTS):
 def relationship_aware_fn(params=DEFAULT_WEIGHTS, social_memory=None):
     def fn(game, p0_color):
         production_features = build_production_features(True)
-        our_production_sample = production_features(game, p0_color)
-        enemy_production_sample = production_features(game, p0_color)
-        production = value_production(our_production_sample, "P0")
-        enemy_production = value_production(enemy_production_sample, "P1", False)
-
+        prod_sample = production_features(game, p0_color)
+        production = value_production(prod_sample, "P0")
         key = player_key(game.state, p0_color)
         longest_road_length = get_longest_road_length(game.state, p0_color)
 
@@ -172,7 +175,6 @@ def relationship_aware_fn(params=DEFAULT_WEIGHTS, social_memory=None):
         score = float(
             game.state.player_state[f"{key}_VICTORY_POINTS"] * params["public_vps"]
             + production * params["production"]
-            + enemy_production * params["enemy_production"]
             + reachable_production_at_zero * params["reachable_production_0"]
             + reachable_production_at_one * params["reachable_production_1"]
             + hand_synergy * params["hand_synergy"]
@@ -188,12 +190,8 @@ def relationship_aware_fn(params=DEFAULT_WEIGHTS, social_memory=None):
         for enemy_color in game.state.colors:
             if enemy_color == p0_color:
                 continue
-            
 
-            enemy_key = player_key(game.state, enemy_color)
-
-            enemy_sample = production_features(game, enemy_color)
-            enemy_prod = value_production(enemy_sample, enemy_key, False)
+            enemy_base = enemy_fn(game, enemy_color)
 
             dynamic_enemy_weight = params["enemy_production"]
 
@@ -212,11 +210,40 @@ def relationship_aware_fn(params=DEFAULT_WEIGHTS, social_memory=None):
                 dynamic_enemy_weight += (grudge_count * -1.5e8)
 
             # Combine this dynamic weight coefficient with the enemy's production points
-            score += (enemy_prod * dynamic_enemy_weight)
+            score += (-enemy_base * dynamic_enemy_weight)
 
         return float(score)
 
     return fn
+
+def enemy_fn(game, p0_color):
+    params=DEFAULT_WEIGHTS
+    production_features = build_production_features(True)
+    prod_sample = production_features(game, p0_color)
+    production = value_production(prod_sample, "P0")
+    key = player_key(game.state, p0_color)
+    longest_road_length = get_longest_road_length(game.state, p0_color)
+
+    # blockability
+    buildings = game.state.buildings_by_color[p0_color]
+    owned_nodes = buildings[SETTLEMENT] + buildings[CITY]
+    owned_tiles = set()
+    for n in owned_nodes:
+        owned_tiles.update(game.state.board.map.adjacent_tiles[n])
+    num_tiles = len(owned_tiles)
+
+    # TODO: Simplify to linear(?)
+    num_buildable_nodes = len(game.state.board.buildable_node_ids(p0_color))
+    longest_road_factor = (
+        params["longest_road"] if num_buildable_nodes == 0 else 0.1
+    )
+
+    return float(
+        game.state.player_state[f"{key}_VICTORY_POINTS"] * params["public_vps"]
+        + production * params["production"]
+        + num_tiles * params["num_tiles"]
+        + longest_road_length * longest_road_factor
+    )
 
 
 def value_production(sample, player_name="P0", include_variety=True):
