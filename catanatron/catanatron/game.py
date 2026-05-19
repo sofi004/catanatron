@@ -5,6 +5,7 @@ Contains Game class which is a thin-wrapper around the State class.
 import uuid
 import random
 import sys
+import time
 from typing import Sequence, Union, Optional
 
 from catanatron.models.actions import generate_playable_actions
@@ -193,6 +194,9 @@ class Game:
                 number_placement=number_placement,
             )
             self.playable_actions = generate_playable_actions(self.state)
+            self.last_decision_duration = 0.0
+            self.last_decision_color = None
+            self.last_decision_was_auto = False
 
     def play(self, accumulators=[], decide_fn=None):
         """Executes game until a player wins or exceeded TURNS_LIMIT.
@@ -227,12 +231,15 @@ class Game:
         """
         # Ask Player for action
         player = self.state.current_player()
+        decision_start = time.perf_counter()
+        decision_was_auto = False
         if player.is_bot and self.state.current_prompt == ActionPrompt.DECIDE_ACCEPTEES:
             confirm_actions = [
                 a for a in self.playable_actions if a.action_type == ActionType.CONFIRM_TRADE
             ]
             if len(confirm_actions) > 0:
                 action = confirm_actions[0]
+                decision_was_auto = True
             else:
                 action = (
                     decide_fn(player, self, self.playable_actions)
@@ -245,6 +252,10 @@ class Game:
                 if decide_fn is not None
                 else player.decide(self, self.playable_actions)
             )
+
+        self.last_decision_duration = time.perf_counter() - decision_start
+        self.last_decision_color = player.color
+        self.last_decision_was_auto = decision_was_auto
 
         # Call accumulator.step here, because we want game_before_action, action
         if len(accumulators) > 0:

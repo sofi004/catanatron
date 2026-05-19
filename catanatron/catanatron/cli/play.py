@@ -441,6 +441,8 @@ def play_batch(
     table.add_column("AVG ROAD", justify="right")
     table.add_column("AVG ARMY", justify="right")
     table.add_column("AVG DEV VP", justify="right")
+
+    negotiation_rows = []
     for player in players:
         vps = statistics_accumulator.results_by_player[player.color]
         avg_vps = sum(vps) / len(vps)
@@ -449,6 +451,22 @@ def play_batch(
         avg_largest = vp_accumulator.get_avg_largest(player.color)
         avg_longest = vp_accumulator.get_avg_longest(player.color)
         avg_devvps = vp_accumulator.get_avg_devvps(player.color)
+        avg_neg_attempts = vp_accumulator.get_avg_negotiation_attempts(player.color)
+        avg_neg_accepted = vp_accumulator.get_avg_negotiation_accepted(player.color)
+        avg_neg_rejected = vp_accumulator.get_avg_negotiation_rejected(player.color)
+        max_turn = statistics_accumulator.get_max_turn_time(player.color)
+        max_turn_str = f"{max_turn:.3f}s" if player.is_bot else "-"
+
+        negotiation_rows.append(
+            (
+                rich_player_name(player),
+                f"{avg_neg_attempts:.2f}",
+                f"{avg_neg_accepted:.2f}",
+                f"{avg_neg_rejected:.2f}",
+                max_turn_str,
+            )
+        )
+
         table.add_row(
             rich_player_name(player),
             str(statistics_accumulator.wins[player.color]),
@@ -459,6 +477,17 @@ def play_batch(
             f"{avg_largest:.2f}",
             f"{avg_devvps:.2f}",
         )
+    console.print(table)
+
+    # ===== NEGOTIATION + TIMING SUMMARY
+    table = Table(title="Negotiation + Timing Summary", box=box.MINIMAL)
+    table.add_column("", no_wrap=True)
+    table.add_column("AVG NEG ATT", justify="right")
+    table.add_column("AVG NEG ACC", justify="right")
+    table.add_column("AVG NEG REJ", justify="right")
+    table.add_column("MAX BOT TURN", justify="right")
+    for row in negotiation_rows:
+        table.add_row(*row)
     console.print(table)
 
     # ===== GAME SUMMARY

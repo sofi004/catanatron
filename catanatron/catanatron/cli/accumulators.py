@@ -13,6 +13,7 @@ from catanatron.state_functions import (
     get_player_buildings,
 )
 from catanatron.models.enums import VICTORY_POINT, SETTLEMENT, CITY
+from catanatron.models.actions import ActionType
 
 
 class VpDistributionAccumulator(GameAccumulator):
@@ -28,6 +29,9 @@ class VpDistributionAccumulator(GameAccumulator):
         self.devvps = defaultdict(int)
         self.longest = defaultdict(int)
         self.largest = defaultdict(int)
+        self.negotiation_attempts = defaultdict(int)
+        self.negotiation_accepted = defaultdict(int)
+        self.negotiation_rejected = defaultdict(int)
 
         self.num_games = 0
 
@@ -48,6 +52,15 @@ class VpDistributionAccumulator(GameAccumulator):
             self.longest[color] += longest
             self.largest[color] += largest
             self.devvps[color] += devvps
+
+        for action_record in game.state.action_records:
+            action = action_record.action
+            if action.action_type == ActionType.OFFER_TRADE:
+                self.negotiation_attempts[action.color] += 1
+            elif action.action_type == ActionType.CONFIRM_TRADE:
+                self.negotiation_accepted[action.color] += 1
+            elif action.action_type == ActionType.REJECT_TRADE:
+                self.negotiation_rejected[action.color] += 1
 
         self.num_games += 1
 
@@ -81,6 +94,24 @@ class VpDistributionAccumulator(GameAccumulator):
         else:
             return self.devvps[color] / self.num_games
 
+    def get_avg_negotiation_attempts(self, color=None):
+        if color is None:
+            return sum(self.negotiation_attempts.values()) / self.num_games
+        else:
+            return self.negotiation_attempts[color] / self.num_games
+
+    def get_avg_negotiation_accepted(self, color=None):
+        if color is None:
+            return sum(self.negotiation_accepted.values()) / self.num_games
+        else:
+            return self.negotiation_accepted[color] / self.num_games
+
+    def get_avg_negotiation_rejected(self, color=None):
+        if color is None:
+            return sum(self.negotiation_rejected.values()) / self.num_games
+        else:
+            return self.negotiation_rejected[color] / self.num_games
+
 
 class StatisticsAccumulator(GameAccumulator):
     def __init__(self):
@@ -90,9 +121,29 @@ class StatisticsAccumulator(GameAccumulator):
         self.durations = []
         self.games = []
         self.results_by_player = defaultdict(list)
+        self.max_turn_time_by_bot = defaultdict(float)
+        self.bot_colors = set()
 
     def before(self, game):
         self.start = time.time()
+        for player in game.state.players:
+            if player.is_bot:
+                self.bot_colors.add(player.color)
+
+    def step(self, game_before_action, action):
+        if getattr(game_before_action, "last_decision_was_auto", False):
+            return
+
+        color = getattr(game_before_action, "last_decision_color", None)
+        duration = getattr(game_before_action, "last_decision_duration", None)
+        if color is None or duration is None:
+            return
+        if color not in self.bot_colors:
+            return
+
+        self.max_turn_time_by_bot[color] = max(
+            self.max_turn_time_by_bot[color], duration
+        )
 
     def after(self, game):
         duration = time.time() - self.start
@@ -118,6 +169,9 @@ class StatisticsAccumulator(GameAccumulator):
 
     def get_avg_duration(self):
         return sum(self.durations) / len(self.durations)
+
+    def get_max_turn_time(self, color):
+        return self.max_turn_time_by_bot[color]
 
 
 class JsonDataAccumulator(GameAccumulator):
