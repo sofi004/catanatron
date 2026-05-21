@@ -1,0 +1,39 @@
+Playing 10 games...                                               ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 0:00:00
+AlphaBetaPlayer:RED(depth=3,value_fn=strategic_fn,prunning=False) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━              70%        
+AlphaBetaPlayer:BLUE(depth=2,value_fn=base_fn,prunning=False)     ━━━━━━━━━━━━                              30%        
+                    Last 10 Games                    
+     ╷          ╷       ╷        ╷         ╷         
+   # │ SEATING  │ TURNS │ RED VP │ BLUE VP │ WINNER  
+╶────┼──────────┼───────┼────────┼─────────┼────────╴
+   1 │ BLUE,RED │    72 │      4 │      10 │ BLUE    
+   2 │ BLUE,RED │    68 │      6 │      10 │ BLUE    
+   3 │ RED,BLUE │    92 │     10 │       7 │ RED     
+   4 │ BLUE,RED │    93 │     10 │       6 │ RED     
+   5 │ RED,BLUE │    79 │      8 │      10 │ BLUE    
+   6 │ RED,BLUE │    78 │     10 │       8 │ RED     
+   7 │ RED,BLUE │   110 │     10 │       8 │ RED     
+   8 │ BLUE,RED │   101 │     10 │       5 │ RED     
+   9 │ RED,BLUE │    82 │     10 │       9 │ RED     
+  10 │ BLUE,RED │    53 │     10 │       2 │ RED     
+     ╵          ╵       ╵        ╵         ╵         
+                                                                 Player Summary                                                                  
+                                                                    ╷      ╷        ╷            ╷            ╷          ╷          ╷            
+                                                                    │      │        │        AVG │            │          │          │   AVG DEV  
+                                                                    │ WINS │ AVG VP │    SETTLES │ AVG CITIES │ AVG ROAD │ AVG ARMY │        VP  
+╶───────────────────────────────────────────────────────────────────┼──────┼────────┼────────────┼────────────┼──────────┼──────────┼───────────╴
+  AlphaBetaPlayer:RED(depth=3,value_fn=strategic_fn,prunning=False) │    7 │   8.80 │       2.80 │       1.80 │     0.70 │     0.30 │      0.40  
+  AlphaBetaPlayer:BLUE(depth=2,value_fn=base_fn,prunning=False)     │    3 │   7.50 │       3.10 │       1.90 │     0.30 │     0.00 │      0.00  
+                                                                    ╵      ╵        ╵            ╵            ╵          ╵          ╵            
+                                                 Negotiation + Timing Summary                                                 
+                                                                    ╷             ╷             ╷             ╷               
+                                                                    │ AVG NEG ATT │ AVG NEG ACC │ AVG NEG REJ │ MAX BOT TURN  
+╶───────────────────────────────────────────────────────────────────┼─────────────┼─────────────┼─────────────┼──────────────╴
+  AlphaBetaPlayer:RED(depth=3,value_fn=strategic_fn,prunning=False) │      289.10 │       29.90 │      219.00 │      17.315s  
+  AlphaBetaPlayer:BLUE(depth=2,value_fn=base_fn,prunning=False)     │      259.50 │       40.50 │      259.20 │       0.836s  
+                                                                    ╵             ╵             ╵             ╵               
+              Game Summary              
+            ╷           ╷               
+  AVG TICKS │ AVG TURNS │ AVG DURATION  
+╶───────────┼───────────┼──────────────╴
+    1406.50 │     82.80 │  71.555 secs  
+            ╵           ╵               

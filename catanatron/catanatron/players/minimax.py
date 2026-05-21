@@ -13,7 +13,7 @@ from catanatron.models.enums import Action, ActionType
 
 
 ALPHABETA_DEFAULT_DEPTH = 2
-MAX_SEARCH_TIME_SECS = 20
+MAX_SEARCH_TIME_SECS = 200
 
 
 class AlphaBetaPlayer(Player):
@@ -40,6 +40,7 @@ class AlphaBetaPlayer(Player):
         self.prunning = str(prunning).lower() != "false"
         self.value_fn_builder_name = (
             "relationship_aware_fn" if value_fn_builder_name == "R"
+            else "strategic_fn" if value_fn_builder_name == "S"
             else "contender_fn" if value_fn_builder_name == "C" else "base_fn"
         )
         self.params = params
@@ -182,6 +183,13 @@ class AlphaBetaPlayer(Player):
 
         maximizingPlayer = game.state.current_color() == self.color
         actions = self.get_actions(game)  # list of actions.
+        
+        if depth < self.depth and self.value_fn_builder_name == "strategic_fn":
+            actions = [
+                a for a in actions 
+                if not (hasattr(a, 'action_type') and a.action_type == ActionType.OFFER_TRADE)
+            ]
+
         action_outcomes = expand_spectrum(game, actions)  # action => (game, proba)[]
 
         if maximizingPlayer:

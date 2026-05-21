@@ -24,6 +24,8 @@ def player_factory(player_key):
         return AlphaBetaPlayer(player_key[1], 2, True)
     elif player_key[0] == "CATANATRON-MINMAX-RELATIONSHIPS":
         return AlphaBetaPlayer(player_key[1], 2, True, "R")
+    elif player_key[0] == "CATANATRON-MINMAX-STRATEGIC":
+        return AlphaBetaPlayer(player_key[1], 3, True, "S")
     elif player_key[0] == "CATANATRON-MCTS":
         return MCTSPlayer(player_key[1], num_simulations=10, prunning=True)
     elif player_key[0] == "WEIGHTED_RANDOM":

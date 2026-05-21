@@ -67,6 +67,14 @@ CLI_PLAYERS = [
         ),
     ),
     CliPlayer(
+        "ABS",
+        "StrategistAlphaBetaPlayer",
+        "AlphaBetaPlayer variant that uses the strategic value function. Params are DEPTH, PRUNNING.",
+        lambda color, depth=3, prunning=False: AlphaBetaPlayer(
+            color, depth, prunning, "S"
+        ),
+    ),
+    CliPlayer(
         "SAB",
         "SameTurnAlphaBetaPlayer",
         "AlphaBeta but searches only within turn",
